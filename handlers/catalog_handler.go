@@ -38,3 +38,29 @@ func HandleCreateProduct(db *sql.DB) http.HandlerFunc {
 		json.NewEncoder(w).Encode(map[string]string{"message": "Product created", "id": newID.String()})
 	}
 }
+
+func HandleGetProducts(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.Query("SELECT id, name, price_cents, billing_interval, created_at FROM products")
+		if err != nil {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var products []models.Product
+		for rows.Next() {
+			var p models.Product
+			if err := rows.Scan(&p.ID, &p.Name, &p.PriceCents, &p.BillingInterval, &p.CreatedAt); err != nil {
+				continue
+			}
+			products = append(products, p)
+		}
+
+		if products == nil {
+			products = []models.Product{} // Return empty array instead of null
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(products)
+	}
+}
