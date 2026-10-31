@@ -14,28 +14,24 @@ import (
 func HandleSubscribe(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
-		// Decode the incoming request
+		
 		var req models.SubscribeRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
 
-		// Validate the product ID
 		if req.ProductID == uuid.Nil {
 			http.Error(w, "Invalid product ID", http.StatusBadRequest)
 			return
 		}
 
-		// Safely extract the user ID from JWT context
 		userID, ok := r.Context().Value("user_id").(uuid.UUID)
 		if !ok || userID == uuid.Nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// Retrieve the product's billing interval
 		var billingInterval string
 		err := db.QueryRow(
 			"SELECT billing_interval FROM products WHERE id = $1",
@@ -50,7 +46,6 @@ func HandleSubscribe(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Calculate the subscription period
 		now := time.Now()
 		var endDate time.Time
 
@@ -64,7 +59,6 @@ func HandleSubscribe(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Create the subscription
 		var subID uuid.UUID
 		err = db.QueryRow(
 			`INSERT INTO subscriptions
@@ -79,7 +73,6 @@ func HandleSubscribe(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Return the created subscription
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message":         "Subscribed successfully",
@@ -90,7 +83,6 @@ func HandleSubscribe(db *sql.DB) http.HandlerFunc {
 
 func HandleGetSubscriptions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Safely extract the user ID
 		userID, ok := r.Context().Value("user_id").(uuid.UUID)
 		if !ok || userID == uuid.Nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

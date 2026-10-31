@@ -87,20 +87,18 @@ func setupRouter(db *sql.DB) *chi.Mux {
 		r.Use(auth.RequireRole("admin"))
 
 		r.Post("/api/products", handlers.HandleCreateProduct(db))
-		r.Get("/api/revenue", handlers.HandleGetRevenue(db)) // Assuming this is already here
-		r.Get("/api/admin/report", handlers.HandleGetAdminReport(db)) // <-- Add this line
+		r.Get("/api/revenue", handlers.HandleGetRevenue(db))
+		r.Get("/api/admin/report", handlers.HandleGetAdminReport(db))
 	})
 
 	// Protected Customer routes (Team Member 2 & 3)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Use(auth.RequireRole("customer"))
-
-		// Member 3's subscription endpoints
+		
 		r.Post("/api/subscribe", handlers.HandleSubscribe(db))
 		r.Get("/api/my-subscriptions", handlers.HandleGetSubscriptions(db))
-		
-		// Member 2's invoice endpoint
+
 		r.Get("/api/invoices", handlers.HandleGetInvoices(db))
 	})
 	
@@ -134,8 +132,7 @@ func main() {
 
     db := initDB(connStr)
     defer db.Close()
-
-    // Member 1's final touch: Build the tables automatically!
+    
     initSchema(db)
 
     r := setupRouter(db)

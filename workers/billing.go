@@ -27,11 +27,9 @@ func StartBillingEngine(db *sql.DB) {
 	}()
 }
 
-// processRenewals finds and processes overdue subscriptions.
 func processRenewals(db *sql.DB) {
 	now := time.Now()
 
-	// First, collect IDs of subscriptions that may need renewal.
 	rows, err := db.Query(`
 		SELECT id
 		FROM subscriptions
@@ -69,7 +67,6 @@ func processRenewals(db *sql.DB) {
 	}
 }
 
-// processSingleRenewal renews one subscription safely.
 func processSingleRenewal(db *sql.DB, subID uuid.UUID) {
 	tx, err := db.Begin()
 	if err != nil {
@@ -77,7 +74,6 @@ func processSingleRenewal(db *sql.DB, subID uuid.UUID) {
 		return
 	}
 
-	// Roll back automatically if the transaction has not committed.
 	defer tx.Rollback()
 
 	var userID uuid.UUID
@@ -86,8 +82,6 @@ func processSingleRenewal(db *sql.DB, subID uuid.UUID) {
 	var currentEnd time.Time
 	var status string
 
-	// Lock the subscription row so another worker cannot
-	// process the same subscription at the same time.
 	err = tx.QueryRow(`
 		SELECT s.user_id,
 		       p.price_cents,
@@ -117,19 +111,13 @@ func processSingleRenewal(db *sql.DB, subID uuid.UUID) {
 
 	now := time.Now()
 
-	// Recheck after obtaining the lock.
-	// Another worker may already have renewed it.
 	if status != "active" || currentEnd.After(now) {
 		return
 	}
 
-	// Calculate how long the subscription has been overdue.
 	overdueDuration := now.Sub(currentEnd)
 	overdueDays := int(overdueDuration.Hours() / 24)
 
-	// Determine the next billing period.
-	// We start a fresh period from the processing date
-	// to avoid generating multiple catch-up invoices.
 	newStart := now
 	var newEnd time.Time
 
@@ -149,10 +137,8 @@ func processSingleRenewal(db *sql.DB, subID uuid.UUID) {
 		return
 	}
 
-	// The invoice is due seven days after processing.
 	dueDate := now.AddDate(0, 0, 7)
 
-	// Generate one pending invoice.
 	_, err = tx.Exec(`
 		INSERT INTO invoices
 			(subscription_id, user_id, amount_due_cents, status, due_date)
@@ -164,7 +150,6 @@ func processSingleRenewal(db *sql.DB, subID uuid.UUID) {
 		return
 	}
 
-	// Advance the subscription period.
 	_, err = tx.Exec(`
 		UPDATE subscriptions
 		SET current_period_start = $1,
