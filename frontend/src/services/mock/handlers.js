@@ -93,6 +93,15 @@ export const mock = {
     return clone(db().invoices.filter((i) => i.user_id === user).map(withStatus))
   },
 
+  async getAdminReport() {
+    await sleep(200)
+    const { subscriptions, users } = db()
+    return subscriptions.map((s) => ({
+      email: users.find((u) => u.id === s.user_id)?.email || `customer-${s.user_id.slice(0, 4)}@example.com`,
+      product: s.product_name, status: s.status, end_date: s.renewal_date,
+    }))
+  },
+
   async getMetrics() {
     await sleep(200)
     const { subscriptions, invoices } = db()

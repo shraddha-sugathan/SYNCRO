@@ -150,9 +150,24 @@ export const api = {
     })
   },
 
-  /** Admin KPIs. The Go API only exposes active_mrr_cents so far; the rest is merged from demo data until it lands. */
+  /** Admin: every subscription with customer email. Go returns `null` when empty. */
+  async getAdminReport() {
+    return call('/admin/report', {}, () => mock.getAdminReport(), (rows) =>
+      (rows || []).map((r) => ({ email: r.email, product: r.product, status: r.status, end_date: r.end_date })),
+    )
+  },
+
+  /**
+   * Admin KPIs. Live: MRR from /revenue and active count from /admin/report.
+   * Overdue invoices have no admin endpoint yet, so that card keeps demo values (`partial: true`).
+   */
   async getMetrics() {
     const demo = await mock.getMetrics()
-    return call('/revenue', {}, async () => ({ ...demo, partial: false }), (r) => ({ ...demo, mrr_cents: r.active_mrr_cents, partial: true }))
+    const revenue = await call('/revenue', {}, async () => null, (r) => r)
+    if (!revenue) return { ...demo, partial: false } // demo mode
+    const report = await this.getAdminReport().catch(() => null)
+    const live = { ...demo, mrr_cents: revenue.active_mrr_cents, partial: true }
+    if (report && apiMode.value === 'live') live.active_subscriptions = report.filter((r) => r.status === 'active').length
+    return live
   },
 }
