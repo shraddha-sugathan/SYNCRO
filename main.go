@@ -10,8 +10,7 @@ import (
 	"syncro/handlers"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
+	"github.com/go-chi/chi/v5/middleware"	
 	_ "github.com/lib/pq"
 )
 
@@ -22,32 +21,42 @@ func setupRouter(db *sql.DB) *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	// Simple health-check for the browser
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Syncro Billing Engine API is running!"))
+	})
+
 	// Public routes
 	r.Post("/api/register", handlers.HandleRegister(db))
 	r.Post("/api/login", handlers.HandleLogin(db))
+	
+	// Anyone needs to be able to see the catalog to subscribe!
+	r.Get("/api/products", handlers.HandleGetProducts(db)) 
 
-	// Protected Admin routes
+	// Protected Admin routes (Team Member 2 & 3)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Use(auth.RequireRole("admin"))
 		
 		r.Post("/api/products", handlers.HandleCreateProduct(db))
+		
+		// Member 2's reporting endpoint
+		r.Get("/api/revenue", handlers.HandleGetRevenue(db)) 
 	})
 
-	// Protected Customer routes
+	// Protected Customer routes (Team Member 2 & 3)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Use(auth.RequireRole("customer"))
 
-		// New subscription endpoint
+		// Member 3's subscription endpoints
 		r.Post("/api/subscribe", handlers.HandleSubscribe(db))
+		r.Get("/api/my-subscriptions", handlers.HandleGetSubscriptions(db))
 		
-		// Existing placeholder for fetching a user's subscriptions
-		r.Get("/api/my-subscriptions", func(w http.ResponseWriter, r *http.Request) {
-			userID := r.Context().Value("user_id").(uuid.UUID)
-			w.Write([]byte(fmt.Sprintf("Fetch subscriptions for %s", userID)))
-		})
+		// Member 2's invoice endpoint
+		r.Get("/api/invoices", handlers.HandleGetInvoices(db))
 	})
+	
 	return r
 }
 
