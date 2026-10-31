@@ -81,15 +81,14 @@ func setupRouter(db *sql.DB) *chi.Mux {
 	// Anyone needs to be able to see the catalog to subscribe!
 	r.Get("/api/products", handlers.HandleGetProducts(db)) 
 
-	// Protected Admin routes (Team Member 2 & 3)
+	// Protected Admin routes
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Use(auth.RequireRole("admin"))
-		
+
 		r.Post("/api/products", handlers.HandleCreateProduct(db))
-		
-		// Member 2's reporting endpoint
-		r.Get("/api/revenue", handlers.HandleGetRevenue(db)) 
+		r.Get("/api/revenue", handlers.HandleGetRevenue(db)) // Assuming this is already here
+		r.Get("/api/admin/report", handlers.HandleGetAdminReport(db)) // <-- Add this line
 	})
 
 	// Protected Customer routes (Team Member 2 & 3)
