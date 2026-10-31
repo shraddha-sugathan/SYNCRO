@@ -70,7 +70,7 @@ const adaptInvoice = (i, subs, products) => {
   const status = i.status === 'paid' ? 'paid' : i.status === 'failed' || new Date(i.due_date) < new Date() ? 'overdue' : 'confirmed'
   return {
     id: i.id, number: `INV-${i.id.slice(0, 6).toUpperCase()}`, user_id: i.user_id, subscription_id: i.subscription_id,
-    product_name: name, status, issue_date: i.created_at, due_date: i.due_date, paid_date: status === 'paid' ? i.created_at : null,
+    product_name: name, status, issue_date: i.created_at, due_date: i.due_date, paid_date: status === 'paid' ? i.updated_at || i.created_at : null,
     lines: [{ description: name, quantity: 1, unit_cents: subtotal, amount_cents: subtotal }],
     subtotal_cents: subtotal, discount_cents: 0, tax_rate: TAX_RATE, tax_cents: total - subtotal, total_cents: total,
   }
@@ -165,9 +165,23 @@ export const api = {
     const demo = await mock.getMetrics()
     const revenue = await call('/revenue', {}, async () => null, (r) => r)
     if (!revenue) return { ...demo, partial: false } // demo mode
-    const report = await this.getAdminReport().catch(() => null)
-    const live = { ...demo, mrr_cents: revenue.active_mrr_cents, partial: true }
-    if (report && apiMode.value === 'live') live.active_subscriptions = report.filter((r) => r.status === 'active').length
-    return live
+    // Go renamed active_mrr_cents -> mrr_cents; accept both.
+    const kpi = { ...demo, mrr_cents: revenue.mrr_cents ?? revenue.active_mrr_cents ?? 0, partial: true }
+    // Admin gets every invoice from /api/invoices: derive overdue + collected from it.
+    try {
+      const invoices = await live('/invoices')
+      const now = Date.now()
+      const overdue = invoices.filter((i) => i.status === 'failed' || (i.status === 'pending' && new Date(i.due_date) < now))
+      kpi.overdue_invoices = overdue.length
+      kpi.overdue_amount_cents = overdue.reduce((s, i) => s + i.amount_due_cents, 0)
+      kpi.collected_cents = invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.amount_due_cents, 0)
+    } catch { /* keep demo values */ }
+    // Active subscription count needs /api/admin/report (not on every branch yet).
+    try {
+      const rows = (await live('/admin/report')) || []
+      kpi.active_subscriptions = rows.filter((r) => r.status === 'active').length
+      kpi.partial = false
+    } catch { /* keep demo value */ }
+    return kpi
   },
 }

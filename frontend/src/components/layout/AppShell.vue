@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.js'
 import ApiModeBadge from '../ui/ApiModeBadge.vue'
+import BrandMark from '../ui/BrandMark.vue'
 import { cap } from '../../utils/format.js'
 
 const auth = useAuthStore()
@@ -17,10 +18,10 @@ function logout() {
   <div class="shell">
     <header class="topbar">
       <div class="topbar-inner">
-        <div class="logo"><span class="logo-mark">S</span> Syncro</div>
+        <BrandMark />
         <div class="topbar-right">
           <ApiModeBadge />
-          <span class="chip chip-brand">{{ cap(auth.role || '') }}</span>
+          <span class="role-tag">{{ cap(auth.role || '') }}</span>
           <span class="who" :title="auth.email">{{ auth.email }}</span>
           <button class="btn btn-ghost btn-sm" @click="logout">Sign out</button>
         </div>

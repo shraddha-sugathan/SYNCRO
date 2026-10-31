@@ -41,7 +41,7 @@ async function submit() {
 </script>
 
 <template>
-  <AuthLayout title="Create your account" subtitle="Start managing plans, invoices and renewals.">
+  <AuthLayout title="Open your account" subtitle="Start managing plans, invoices and renewals.">
     <form novalidate @submit.prevent="submit">
       <div class="field">
         <label>Account type</label>
