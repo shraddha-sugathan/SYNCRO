@@ -103,7 +103,6 @@ func setupRouter(db *sql.DB) *chi.Mux {
 		// Member 2's invoice endpoint
 		r.Get("/api/invoices", handlers.HandleGetInvoices(db))
 	})
-
 	return r
 }
 
@@ -138,7 +137,6 @@ func main() {
 	r := setupRouter(db)
 
 	workers.StartBillingEngine(db)
-
 	fmt.Println("Syncro server starting on :8080...")
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Server failed: %v\n", err)
