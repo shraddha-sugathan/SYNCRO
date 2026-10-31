@@ -56,6 +56,7 @@ type Invoice struct {
 	Status         string    `json:"status"`
 	DueDate        time.Time `json:"due_date"`
 	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // Use an environment variable for this in production
@@ -175,6 +176,13 @@ func setupRouter(db *sql.DB) *chi.Mux {
 		r.Use(RequireRole("admin"))
 
 		r.Post("/api/products", handleCreateProduct(db))
+		r.Get("/api/admin/revenue", handleGetRevenue(db))
+	})
+
+	// Authenticated invoice routes
+	r.Group(func(r chi.Router) {
+		r.Use(RequireAuth)
+		r.Get("/api/invoices", handleGetInvoices(db))
 	})
 
 	// Protected Customer routes
@@ -335,6 +343,82 @@ func handleGetProducts(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(products); err != nil {
 			http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
+		}
+	}
+}
+
+func handleGetInvoices(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		role, roleOK := r.Context().Value("role").(string)
+		userID, userOK := r.Context().Value("user_id").(uuid.UUID)
+		if !roleOK || !userOK {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if role != "customer" && role != "admin" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		query := `SELECT id, subscription_id, user_id, amount_due_cents, status, due_date, created_at, updated_at
+			FROM invoices`
+		args := []interface{}{}
+		if role == "customer" {
+			query += " WHERE user_id = $1"
+			args = append(args, userID)
+		}
+		query += " ORDER BY created_at DESC"
+
+		rows, err := db.Query(query, args...)
+		if err != nil {
+			http.Error(w, "Failed to fetch invoices", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		invoices := make([]Invoice, 0)
+		for rows.Next() {
+			var invoice Invoice
+			if err := rows.Scan(&invoice.ID, &invoice.SubscriptionID, &invoice.UserID, &invoice.AmountDueCents, &invoice.Status, &invoice.DueDate, &invoice.CreatedAt, &invoice.UpdatedAt); err != nil {
+				http.Error(w, "Failed to fetch invoices", http.StatusInternalServerError)
+				return
+			}
+			invoices = append(invoices, invoice)
+		}
+		if err := rows.Err(); err != nil {
+			http.Error(w, "Failed to fetch invoices", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(invoices); err != nil {
+			http.Error(w, "Failed to fetch invoices", http.StatusInternalServerError)
+		}
+	}
+}
+
+func handleGetRevenue(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var mrrCents int64
+		err := db.QueryRow(`
+			SELECT COALESCE(SUM(
+				CASE p.billing_interval
+					WHEN 'monthly' THEN p.price_cents
+					WHEN 'yearly' THEN p.price_cents / 12
+					ELSE 0
+				END
+			), 0)
+			FROM subscriptions s
+			JOIN products p ON p.id = s.product_id
+			WHERE s.status = 'active'`).Scan(&mrrCents)
+		if err != nil {
+			http.Error(w, "Failed to calculate revenue", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]int64{"mrr_cents": mrrCents}); err != nil {
+			http.Error(w, "Failed to calculate revenue", http.StatusInternalServerError)
 		}
 	}
 }
