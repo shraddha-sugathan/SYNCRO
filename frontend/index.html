@@ -41,12 +41,21 @@
             <!-- Google Auth Integration -->
             <p style="text-align: center; font-size: 0.9em; color: #666;">Or authenticate with Gmail</p>
             <div id="g_id_onload"
-                 data-client_id="YOUR_GOOGLE_CLIENT_ID"
-                 data-context="signin"
-                 data-callback="handleGoogleLogin"
-                 data-auto_prompt="false">
+                data-client_id="YOUR_ACTUAL_CLIENT_ID_HERE.apps.googleusercontent.com"
+                data-context="signin"
+                data-ux_mode="popup"
+                data-callback="handleGoogleLogin"
+                data-auto_prompt="false">
             </div>
-            <div class="g_id_signin" data-type="standard"></div>
+
+            <div class="g_id_signin"
+                data-type="standard"
+                data-shape="rectangular"
+                data-theme="outline"
+                data-text="signin_with"
+                data-size="large"
+                data-logo_alignment="left">
+            </div>            
         </div>
 
         <!-- Authenticated Dashboard -->
@@ -161,10 +170,25 @@
 
                 // Attach to window so Google script can call it
                 window.handleGoogleLogin = async (response) => {
-                    // response.credential contains the Google JWT. 
-                    // In a production app, you send this to Go, Go validates it, and issues the Syncro JWT.
-                    console.log("Google JWT:", response.credential);
-                    showMsg('success', 'Google Auth Triggered - Backend verification required.')
+                    // Send the Google JWT to your new Go backend handler
+                    const res = await fetch('/api/auth/google', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: response.credential })
+                    })
+                    
+                    if (res.ok) {
+                        const data = await res.json()
+                        
+                        // Save the Syncro token and decode it to set email/role
+                        token.value = data.token
+                        decodeToken(data.token) 
+                        
+                        showMsg('success', 'Logged in with Google!')
+                        loadDashboardData()
+                    } else {
+                        showMsg('error', 'Google authentication failed. Check the backend logs.')
+                    }
                 }
 
                 const login = async () => {

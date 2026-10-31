@@ -69,6 +69,7 @@ func setupRouter(db *sql.DB) *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	
 	// Serve the Vue UI
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "frontend/index.html")
@@ -89,6 +90,7 @@ func setupRouter(db *sql.DB) *chi.Mux {
 		r.Post("/api/products", handlers.HandleCreateProduct(db))
 		r.Get("/api/revenue", handlers.HandleGetRevenue(db))
 		r.Get("/api/admin/report", handlers.HandleGetAdminReport(db))
+		r.Post("/api/auth/google", handlers.GoogleLogin(db))
 	})
 
 	// Protected Customer routes (Team Member 2 & 3)
