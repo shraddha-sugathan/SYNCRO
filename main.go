@@ -12,7 +12,7 @@ import (
 	"syncro/workers"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/chi/v5/middleware"	
 	_ "github.com/lib/pq"
 )
 
@@ -61,6 +61,7 @@ func initSchema(db *sql.DB) {
 	log.Println("Database schema initialized successfully.")
 }
 
+
 // --- Router Setup ---
 
 func setupRouter(db *sql.DB) *chi.Mux {
@@ -76,15 +77,14 @@ func setupRouter(db *sql.DB) *chi.Mux {
 	// Public routes
 	r.Post("/api/register", handlers.HandleRegister(db))
 	r.Post("/api/login", handlers.HandleLogin(db))
-
+	
 	// Anyone needs to be able to see the catalog to subscribe!
-	r.Get("/api/products", handlers.HandleGetProducts(db))
+	r.Get("/api/products", handlers.HandleGetProducts(db)) 
 
 	// Protected Admin routes
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Use(auth.RequireRole("admin"))
-
 
 		r.Post("/api/products", handlers.HandleCreateProduct(db))
 		r.Get("/api/revenue", handlers.HandleGetRevenue(db)) // Assuming this is already here
@@ -99,10 +99,11 @@ func setupRouter(db *sql.DB) *chi.Mux {
 		// Member 3's subscription endpoints
 		r.Post("/api/subscribe", handlers.HandleSubscribe(db))
 		r.Get("/api/my-subscriptions", handlers.HandleGetSubscriptions(db))
-
+		
 		// Member 2's invoice endpoint
 		r.Get("/api/invoices", handlers.HandleGetInvoices(db))
 	})
+	
 	return r
 }
 
@@ -127,7 +128,7 @@ func main() {
 		dbPassword = "postgres" // your local docker password
 	}
 
-	connStr := fmt.Sprintf("postgres://postgres:%s@localhost:5433/syncro?sslmode=disable", dbPassword)
+	connStr := fmt.Sprintf("postgres://postgres:%s@localhost:5432/syncro?sslmode=disable", dbPassword)
 	db := initDB(connStr)
 	defer db.Close()
 
@@ -135,8 +136,9 @@ func main() {
 	initSchema(db)
 
 	r := setupRouter(db)
-
+	
 	workers.StartBillingEngine(db)
+	
 	fmt.Println("Syncro server starting on :8080...")
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Server failed: %v\n", err)
