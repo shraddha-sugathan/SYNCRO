@@ -31,6 +31,16 @@
             <!-- Admin View -->
             <div v-if="role === 'admin'">
                 <h2>Admin Dashboard</h2>
+                
+                <!-- New MRR Dashboard -->
+                <div class="card" style="margin-bottom: 2rem; background: #e0f2fe; border: 1px solid #bae6fd;">
+                    <h3 style="margin-top: 0;">Total Active Revenue (MRR)</h3>
+                    <p style="font-size: 2.5rem; font-weight: bold; margin: 0.5rem 0; color: #0369a1;">
+                        ${{ mrr / 100 }}
+                    </p>
+                    <button @click="fetchMRR" style="background: #0284c7;">Refresh Revenue</button>
+                </div>
+
                 <div class="card">
                     <h3>Create Product</h3>
                     <input v-model="newProduct.name" placeholder="Plan Name (e.g. Pro)" />
@@ -49,8 +59,20 @@
                 <button @click="fetchProducts">View Available Plans</button>
                 <ul>
                     <li v-for="p in products" :key="p.id">
-                        {{ p.name }} - {{ p.price_cents / 100 }} / {{ p.billing_interval }}
+                        {{ p.name }} - ${{ p.price_cents / 100 }} / {{ p.billing_interval }}
                         <button @click="subscribe(p.id)" style="width: auto; margin-left: 1rem;">Subscribe</button>
+                    </li>
+                </ul>
+
+                <!-- New Invoice Section -->
+                <hr style="margin: 2rem 0;">
+                <h3>My Invoices</h3>
+                <button @click="fetchInvoices">Refresh Invoices</button>
+                <ul>
+                    <li v-for="inv in invoices" :key="inv.id">
+                        ${{ inv.amount_due_cents / 100 }} - 
+                        <strong>{{ inv.status.toUpperCase() }}</strong> - 
+                        Due: {{ new Date(inv.due_date).toLocaleDateString() }}
                     </li>
                 </ul>
             </div>
@@ -72,6 +94,32 @@
                 const newProduct = ref({ name: '', price: null, interval: 'monthly' })
 
                 const parseJwt = (t) => JSON.parse(atob(t.split('.')[1]))
+
+                // Add to your variable declarations
+                const invoices = ref([])
+
+                const mrr = ref(0)
+
+                // 2. Add the fetch function
+                const fetchMRR = async () => {
+                    const res = await fetch('/api/revenue', {
+                        headers: { 'Authorization': 'Bearer ' + token.value }
+                    })
+                    if (res.ok) {
+                        const data = await res.json()
+                        mrr.value = data.active_mrr_cents
+                    }
+                }
+
+                // Add the fetch function
+                const fetchInvoices = async () => {
+                    const res = await fetch('/api/invoices', {
+                        headers: { 'Authorization': 'Bearer ' + token.value }
+                    })
+                    if (res.ok) {
+                        invoices.value = await res.json()
+                    }
+                }
 
                 const login = async () => {
                     error.value = ''
@@ -126,8 +174,12 @@
                     })
                     if (res.ok) alert('Subscribed successfully!')
                 }
-
-                return { email, password, token, role, error, login, logout, products, newProduct, fetchProducts, createProduct, subscribe }
+                
+                return { 
+                    email, password, token, role, error, login, logout, 
+                    products, newProduct, fetchProducts, createProduct, subscribe,
+                    invoices, fetchInvoices, mrr, fetchMRR
+                }
             }
         }).mount('#app')
     </script>
