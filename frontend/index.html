@@ -193,6 +193,8 @@
                         fetchAdminReports()
                     } else if (role.value === 'customer') {
                         fetchInvoices()
+                        // Retrieve the saved button states for this specific user
+                        subscribedProducts.value = JSON.parse(localStorage.getItem('subs_' + email.value) || '[]')
                     }
                 }
 
@@ -228,10 +230,15 @@
                     })
                     if (res.ok) {
                         showMsg('success', 'Subscribed successfully!')
-                        subscribedProducts.value.push(productId) // <-- This triggers the disable state
+                        if (!subscribedProducts.value.includes(productId)) {
+                            subscribedProducts.value.push(productId)
+                            // Save the updated array to the browser
+                            localStorage.setItem('subs_' + email.value, JSON.stringify(subscribedProducts.value))
+                        }
                     }
                 }
 
+                
                 const fetchInvoices = async () => {
                     const res = await fetch('/api/invoices', { headers: { 'Authorization': 'Bearer ' + token.value } })
                     if (res.ok) invoices.value = await res.json()
