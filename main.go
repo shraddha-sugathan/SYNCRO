@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"regexp"
 	"golang.org/x/crypto/bcrypt"
+	"regexp"
 
 	"context"
 	"database/sql"
@@ -67,7 +67,6 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-
 type AuthRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -86,7 +85,7 @@ func validatePassword(password string) bool {
 	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
 	hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
 	hasSpecial := regexp.MustCompile(`[^a-zA-Z0-9]`).MatchString(password)
-	
+
 	return hasUpper && hasLower && hasSpecial
 }
 
@@ -117,7 +116,7 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 		claims := &Claims{}
-		
+
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			return jwtSecret, nil
 		})
@@ -164,6 +163,7 @@ func setupRouter(db *sql.DB) *chi.Mux {
 	// Public routes
 	r.Post("/api/register", handleRegister(db))
 	r.Post("/api/login", handleLogin(db))
+	r.Get("/api/products", handleGetProducts(db))
 
 	//r.Post("/api/login", func(w http.ResponseWriter, r *http.Request) {
 	//	w.Write([]byte("Login handler goes here"))
@@ -173,10 +173,8 @@ func setupRouter(db *sql.DB) *chi.Mux {
 	r.Group(func(r chi.Router) {
 		r.Use(RequireAuth)
 		r.Use(RequireRole("admin"))
-		
-		r.Post("/api/products", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Create product handler goes here"))
-		})
+
+		r.Post("/api/products", handleCreateProduct(db))
 	})
 
 	// Protected Customer routes
@@ -197,7 +195,7 @@ func setupRouter(db *sql.DB) *chi.Mux {
 
 func initDB(password string) *sql.DB {
 	connStr := fmt.Sprintf("postgres://postgres:%s@localhost:5432/syncro?sslmode=disable", password)
-	
+
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("Failed to open database connection: %v", err)
@@ -210,7 +208,6 @@ func initDB(password string) *sql.DB {
 	log.Println("Successfully connected to the syncro database.")
 	return db
 }
-
 
 func handleRegister(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +255,7 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 		var user User
 		err := db.QueryRow("SELECT id, password_hash, role FROM users WHERE email = $1", req.Email).
 			Scan(&user.ID, &user.PasswordHash, &user.Role)
-			
+
 		if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
@@ -282,6 +279,15 @@ func handleCreateProduct(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		req.Name = strings.TrimSpace(req.Name)
+		if req.Name == "" {
+			http.Error(w, "Product name is required", http.StatusBadRequest)
+			return
+		}
+		if req.PriceCents < 0 {
+			http.Error(w, "Price cents must be non-negative", http.StatusBadRequest)
+			return
+		}
 		if req.BillingInterval != "monthly" && req.BillingInterval != "yearly" {
 			http.Error(w, "Billing interval must be 'monthly' or 'yearly'", http.StatusBadRequest)
 			return
@@ -303,12 +309,42 @@ func handleCreateProduct(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func handleGetProducts(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.Query("SELECT id, name, price_cents, billing_interval, created_at FROM products ORDER BY created_at DESC")
+		if err != nil {
+			http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		products := make([]Product, 0)
+		for rows.Next() {
+			var product Product
+			if err := rows.Scan(&product.ID, &product.Name, &product.PriceCents, &product.BillingInterval, &product.CreatedAt); err != nil {
+				http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
+				return
+			}
+			products = append(products, product)
+		}
+		if err := rows.Err(); err != nil {
+			http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(products); err != nil {
+			http.Error(w, "Failed to fetch products", http.StatusInternalServerError)
+		}
+	}
+}
+
 func main() {
 	db := initDB("postgres")
 	defer db.Close()
 
 	r := setupRouter(db)
-	
+
 	fmt.Println("Syncro server starting on :8080...")
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Server failed: %v\n", err)
