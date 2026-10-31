@@ -37,7 +37,7 @@ SYNCRO is a lightweight, full-stack subscription billing engine designed to simp
 
 It brings together product management, customer subscriptions, invoice tracking, automated billing, and revenue analytics to streamline subscription-based business operations.
 
-## ✨ Key Features
+##  Key Features
 
 ### 1. Authentication & Authorization
 
@@ -81,7 +81,7 @@ It brings together product management, customer subscriptions, invoice tracking,
 * Product and customer management.
 * Access to invoice and revenue information.
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 | Component             | Technology                    |
 | --------------------- | ----------------------------- |
@@ -94,7 +94,7 @@ It brings together product management, customer subscriptions, invoice tracking,
 | Background Processing | Go routines                   |
 | Version Control       | Git and GitHub                |
 
-## 🏗️ System Architecture
+##  System Architecture
 
 SYNCRO follows a modular client-server architecture.
 
@@ -103,7 +103,7 @@ SYNCRO follows a modular client-server architecture.
 * **Database Layer:** Stores user, product, subscription, and invoice information.
 * **Background Processing Layer:** Handles recurring billing and subscription renewal operations.
 
-## 🔗 API Overview
+##  API Overview
 
 The backend exposes RESTful endpoints for product management, invoice retrieval, and revenue reporting.
 
@@ -123,7 +123,7 @@ The backend exposes RESTful endpoints for product management, invoice retrieval,
 * Administrators can retrieve all invoices.
 * Revenue reporting endpoints require administrator authorization.
 
-## 📂 Project Structure
+##  Project Structure
 
 ```text
 SYNCRO/
@@ -137,7 +137,7 @@ SYNCRO/
 └── README.md
 ```
 
-## ⚙️ Local Development
+##  Local Development
 
 ### Prerequisites
 
@@ -182,7 +182,7 @@ Open the local URL displayed by Vite, usually:
 
 **Note:** The frontend and backend must both be running for complete application functionality. Ensure the database and backend environment configuration match the project's setup.
 
-## 🔐 Security Considerations
+##  Security Considerations
 
 * JWT-based authentication for protected resources.
 * Role-based authorization for administrative operations.
@@ -190,7 +190,7 @@ Open the local URL displayed by Vite, usually:
 * Environment-based configuration for sensitive credentials.
 * Database-backed storage of application data.
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 * Payment gateway integration.
 * Email notifications for billing and renewals.
