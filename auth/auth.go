@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -10,13 +11,18 @@ import (
 	"github.com/google/uuid"
 )
 
-// Use an environment variable for this in production
-var jwtSecret = []byte("syncro-hackathon-super-secret-key")
-
 type Claims struct {
 	UserID uuid.UUID `json:"user_id"`
 	Role   string    `json:"role"`
 	jwt.RegisteredClaims
+}
+
+func getJWTSecret() []byte {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return []byte("syncro-hackathon-super-secret-key")
+	}
+	return []byte(secret)
 }
 
 func GenerateToken(userID uuid.UUID, role string) (string, error) {
@@ -29,7 +35,7 @@ func GenerateToken(userID uuid.UUID, role string) (string, error) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(getJWTSecret())
 }
 
 func RequireAuth(next http.Handler) http.Handler {
@@ -44,7 +50,7 @@ func RequireAuth(next http.Handler) http.Handler {
 		claims := &Claims{}
 		
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
+			return getJWTSecret(), nil
 		})
 
 		if err != nil || !token.Valid {

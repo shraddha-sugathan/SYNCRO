@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syncro Billing</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; padding: 2rem; background: #f4f4f5; }
+        .card { background: white; padding: 2rem; border-radius: 8px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input, button { display: block; width: 100%; margin-bottom: 1rem; padding: 0.5rem; box-sizing: border-box; }
+        button { background: #2563eb; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        .dashboard { max-width: 800px; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Login Screen -->
+        <div v-if="!token" class="card">
+            <h2>Syncro Login</h2>
+            <input v-model="email" type="email" placeholder="Email" />
+            <input v-model="password" type="password" placeholder="Password" />
+            <button @click="login">Login</button>
+            <p style="color: red;">{{ error }}</p>
+        </div>
+
+        <!-- Authenticated Dashboard -->
+        <div v-else class="dashboard">
+            <button @click="logout" style="width: auto; float: right;">Logout</button>
+            
+            <!-- Admin View -->
+            <div v-if="role === 'admin'">
+                <h2>Admin Dashboard</h2>
+                <div class="card">
+                    <h3>Create Product</h3>
+                    <input v-model="newProduct.name" placeholder="Plan Name (e.g. Pro)" />
+                    <input v-model="newProduct.price" type="number" placeholder="Price in Cents (e.g. 5000)" />
+                    <select v-model="newProduct.interval" style="width:100%; margin-bottom:1rem; padding:0.5rem;">
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                    <button @click="createProduct">Create Product</button>
+                </div>
+            </div>
+
+            <!-- Customer View -->
+            <div v-if="role === 'customer'">
+                <h2>Customer Portal</h2>
+                <button @click="fetchProducts">View Available Plans</button>
+                <ul>
+                    <li v-for="p in products" :key="p.id">
+                        {{ p.name }} - {{ p.price_cents / 100 }} / {{ p.billing_interval }}
+                        <button @click="subscribe(p.id)" style="width: auto; margin-left: 1rem;">Subscribe</button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue
+
+        createApp({
+            setup() {
+                const email = ref('test@example.com')
+                const password = ref('StrongPassword123!')
+                const token = ref('')
+                const role = ref('')
+                const error = ref('')
+                
+                const products = ref([])
+                const newProduct = ref({ name: '', price: null, interval: 'monthly' })
+
+                const parseJwt = (t) => JSON.parse(atob(t.split('.')[1]))
+
+                const login = async () => {
+                    error.value = ''
+                    const res = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: email.value, password: password.value })
+                    })
+                    if (res.ok) {
+                        const data = await res.json()
+                        token.value = data.token
+                        role.value = parseJwt(data.token).role
+                    } else {
+                        error.value = 'Login failed. Check credentials.'
+                    }
+                }
+
+                const logout = () => {
+                    token.value = ''
+                    role.value = ''
+                }
+
+                const fetchProducts = async () => {
+                    const res = await fetch('/api/products')
+                    products.value = await res.json()
+                }
+
+                const createProduct = async () => {
+                    await fetch('/api/products', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token.value 
+                        },
+                        body: JSON.stringify({ 
+                            name: newProduct.value.name, 
+                            price_cents: newProduct.value.price, 
+                            billing_interval: newProduct.value.interval 
+                        })
+                    })
+                    alert('Product created!')
+                }
+
+                const subscribe = async (productId) => {
+                    const res = await fetch('/api/subscribe', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token.value 
+                        },
+                        body: JSON.stringify({ product_id: productId })
+                    })
+                    if (res.ok) alert('Subscribed successfully!')
+                }
+
+                return { email, password, token, role, error, login, logout, products, newProduct, fetchProducts, createProduct, subscribe }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
