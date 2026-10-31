@@ -122,25 +122,34 @@ func initDB(connStr string) *sql.DB {
 }
 
 func main() {
-	// Fallback to defaults if env vars aren't set (great for local hackathon dev)
-	dbPassword := os.Getenv("DB_PASSWORD")
-	if dbPassword == "" {
-		dbPassword = "postgres" // your local docker password
-	}
+    // 1. Database connection: Use Render's DB_URL if available, else fallback to local
+    connStr := os.Getenv("DB_URL")
+    if connStr == "" {
+        dbPassword := os.Getenv("DB_PASSWORD")
+        if dbPassword == "" {
+            dbPassword = "postgres" // your local docker password
+        }
+        connStr = fmt.Sprintf("postgres://postgres:%s@localhost:5432/syncro?sslmode=disable", dbPassword)
+    }
 
-	connStr := fmt.Sprintf("postgres://postgres:%s@localhost:5432/syncro?sslmode=disable", dbPassword)
-	db := initDB(connStr)
-	defer db.Close()
+    db := initDB(connStr)
+    defer db.Close()
 
-	// Member 1's final touch: Build the tables automatically!
-	initSchema(db)
+    // Member 1's final touch: Build the tables automatically!
+    initSchema(db)
 
-	r := setupRouter(db)
-	
-	workers.StartBillingEngine(db)
-	
-	fmt.Println("Syncro server starting on :8080...")
-	if err := http.ListenAndServe(":8080", r); err != nil {
-		fmt.Printf("Server failed: %v\n", err)
-	}
+    r := setupRouter(db)
+    
+    workers.StartBillingEngine(db)
+    
+    // 2. Port configuration: Use Render's PORT if available, else fallback to 8080
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+
+    fmt.Printf("Syncro server starting on :%s...\n", port)
+    if err := http.ListenAndServe(":"+port, r); err != nil {
+        fmt.Printf("Server failed: %v\n", err)
+    }
 }
